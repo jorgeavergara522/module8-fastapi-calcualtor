@@ -75,8 +75,8 @@ jobs:
        with:
          push: true
          tags: |
-           kaw393939/601_module8:latest
-           kaw393939/601_module8:${{ github.sha }}
+           jav0613/module8_calc:latest
+           jav0613/module8_calc:${{ github.sha }}
          platforms: linux/amd64,linux/arm64
-         cache-from: type=registry,ref=kaw393939/601_module8:cache
+         cache-from: type=registry,ref=jav0613/module8_calc:cache
          cache-to: type=inline,mode=max
