@@ -20,7 +20,7 @@ MarkupSafe==3.0.2
 mccabe==0.7.0
 packaging==24.2
 platformdirs==4.3.6
-playwright==1.48.0
+playwright==1.47.0
 pluggy==1.5.0
 pydantic==2.9.2
 pydantic_core==2.23.4
