@@ -1,27 +1,35 @@
-FROM python:3.10-slim
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-   PYTHONUNBUFFERED=1
-
+# --- Stage 1: test/build (has Playwright for E2E) ---
+FROM mcr.microsoft.com/playwright/python:v1.47.0-noble AS test
 WORKDIR /app
 
-RUN apt-get update && \
-   apt-get upgrade -y && \
-   apt-get install -y --no-install-recommends gcc python3-dev libssl-dev && \
-   rm -rf /var/lib/apt/lists/* && \
-   python -m pip install --upgrade pip setuptools>=70.0.0 wheel && \
-   groupadd -r appgroup && \
-   useradd -r -g appgroup appuser
-
+# Install all Python deps (Playwright browsers too)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    python -m playwright install --with-deps
 
+# Bring in the app code
 COPY . .
-RUN chown -R appuser:appgroup /app
 
+# --- Stage 2: runtime (small, fewer CVEs) ---
+FROM python:3.11-slim AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+WORKDIR /app
+
+# Install only what’s needed to RUN the app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    useradd -m appuser
+
+# Copy built app from test stage
+COPY --from=test /app /app
 USER appuser
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-   CMD curl -f http://localhost:8000/health || exit 1
+EXPOSE 8000
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Healthcheck without curl (uses Python stdlib)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health');" || exit 1
+
+CMD ["uvicorn","main:app","--host","0.0.0.0","--port","8000"]
+
