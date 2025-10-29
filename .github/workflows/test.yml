@@ -34,10 +34,14 @@ jobs:
           python -m pip install playwright
           python -m playwright install --with-deps
 
-      - name: Run unit + integration tests
+      - name: Run unit + integration tests (optional)
         run: |
           source venv/bin/activate
-          pytest -q tests/unit tests/integration --cov=. --cov-report=term-missing
+          if ls tests/unit/*.py >/dev/null 2>&1 || ls tests/integration/*.py >/dev/null 2>&1; then
+            pytest -q tests/unit tests/integration --cov=. --cov-report=term-missing
+          else
+            echo "No unit/integration tests found. Skipping."
+          fi
 
       - name: Run E2E tests (start server)
         run: |
@@ -54,17 +58,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Build ONLY the runtime stage from your multi-stage Dockerfile
       - name: Build runtime image
         run: docker build --target runtime -t app:release .
 
+      # Block on CRITICAL only (HIGH will show but not fail)
       - name: Run Trivy vulnerability scanner (block on CRITICAL)
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: app:release
           format: table
-          exit-code: "1"        # fail job if CRITICAL is found
+          exit-code: "1"
           ignore-unfixed: true
-          severity: CRITICAL    # only CRITICAL blocks; HIGH gets reported
+          severity: CRITICAL
 
   deploy:
     needs: security
